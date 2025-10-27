@@ -6,15 +6,19 @@ import { ExecutionsTable } from "@/components/ExecutionsTable";
 import { ExecutionFilters } from "@/components/ExecutionFilters";
 import { ExecutionDetailDialog } from "@/components/ExecutionDetailDialog";
 import { WorkflowsTable } from "@/components/WorkflowsTable";
+import { WorkflowDetailDialog } from "@/components/WorkflowDetailDialog";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MOCK_EXECUTIONS, MOCK_WORKFLOWS } from "@/lib/mockData";
-import { Execution, ExecutionStatus } from "@/types/n8n";
+import { Execution, ExecutionStatus, Workflow } from "@/types/n8n";
 
 const Index = () => {
   const [selectedExecution, setSelectedExecution] = useState<Execution | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null);
+  const [executionDialogOpen, setExecutionDialogOpen] = useState(false);
+  const [workflowDialogOpen, setWorkflowDialogOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<ExecutionStatus | undefined>();
-  const [selectedWorkflow, setSelectedWorkflow] = useState<string | undefined>();
+  const [selectedWorkflowFilter, setSelectedWorkflowFilter] = useState<string | undefined>();
 
   // Use mock data - replace with real API calls later
   const executions = MOCK_EXECUTIONS;
@@ -23,10 +27,10 @@ const Index = () => {
   const filteredExecutions = useMemo(() => {
     return executions.filter((execution) => {
       if (selectedStatus && execution.status !== selectedStatus) return false;
-      if (selectedWorkflow && execution.workflowId !== selectedWorkflow) return false;
+      if (selectedWorkflowFilter && execution.workflowId !== selectedWorkflowFilter) return false;
       return true;
     });
-  }, [executions, selectedStatus, selectedWorkflow]);
+  }, [executions, selectedStatus, selectedWorkflowFilter]);
 
   const stats = useMemo(() => {
     const total = executions.length;
@@ -37,23 +41,31 @@ const Index = () => {
     return { total, success, error, running };
   }, [executions]);
 
-  const handleViewDetail = (execution: Execution) => {
+  const handleViewExecutionDetail = (execution: Execution) => {
     setSelectedExecution(execution);
-    setDialogOpen(true);
+    setExecutionDialogOpen(true);
+  };
+
+  const handleViewWorkflowDetail = (workflow: Workflow) => {
+    setSelectedWorkflow(workflow);
+    setWorkflowDialogOpen(true);
   };
 
   const handleResetFilters = () => {
     setSelectedStatus(undefined);
-    setSelectedWorkflow(undefined);
+    setSelectedWorkflowFilter(undefined);
   };
 
   return (
     <div className="min-h-screen bg-background p-6 space-y-6">
-      <div className="space-y-2">
-        <h1 className="text-4xl font-bold tracking-tight">n8n Dashboard</h1>
-        <p className="text-muted-foreground">
-          Monitor and manage your workflow executions
-        </p>
+      <div className="flex items-center justify-between">
+        <div className="space-y-2">
+          <h1 className="text-4xl font-bold tracking-tight">n8n Dashboard</h1>
+          <p className="text-muted-foreground">
+            Monitor and manage your workflow executions
+          </p>
+        </div>
+        <ThemeToggle />
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -88,10 +100,10 @@ const Index = () => {
         <TabsContent value="executions" className="space-y-6">
           <ExecutionFilters
             selectedStatus={selectedStatus}
-            selectedWorkflow={selectedWorkflow}
+            selectedWorkflow={selectedWorkflowFilter}
             workflows={workflows}
             onStatusChange={setSelectedStatus}
-            onWorkflowChange={setSelectedWorkflow}
+            onWorkflowChange={setSelectedWorkflowFilter}
             onReset={handleResetFilters}
           />
 
@@ -102,21 +114,27 @@ const Index = () => {
             <div className="lg:col-span-2">
               <ExecutionsTable
                 executions={filteredExecutions}
-                onViewDetail={handleViewDetail}
+                onViewDetail={handleViewExecutionDetail}
               />
             </div>
           </div>
         </TabsContent>
 
         <TabsContent value="workflows">
-          <WorkflowsTable workflows={workflows} />
+          <WorkflowsTable workflows={workflows} onViewDetail={handleViewWorkflowDetail} />
         </TabsContent>
       </Tabs>
 
       <ExecutionDetailDialog
         execution={selectedExecution}
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        open={executionDialogOpen}
+        onOpenChange={setExecutionDialogOpen}
+      />
+
+      <WorkflowDetailDialog
+        workflow={selectedWorkflow}
+        open={workflowDialogOpen}
+        onOpenChange={setWorkflowDialogOpen}
       />
     </div>
   );

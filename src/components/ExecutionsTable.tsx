@@ -11,7 +11,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "./StatusBadge";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Eye } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 
@@ -23,8 +23,56 @@ interface ExecutionsTableProps {
 
 const ITEMS_PER_PAGE = 10;
 
+type SortField = "id" | "workflowName" | "status" | "startedAt";
+type SortOrder = "asc" | "desc";
+
 export function ExecutionsTable({ executions, isLoading, onViewDetail }: ExecutionsTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortField, setSortField] = useState<SortField>("startedAt");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortOrder("asc");
+    }
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="ml-2 h-4 w-4" />;
+    }
+    return sortOrder === "asc" ? (
+      <ArrowUp className="ml-2 h-4 w-4" />
+    ) : (
+      <ArrowDown className="ml-2 h-4 w-4" />
+    );
+  };
+
+  const sortedExecutions = [...executions].sort((a, b) => {
+    let comparison = 0;
+    
+    switch (sortField) {
+      case "id":
+        comparison = parseInt(a.id) - parseInt(b.id);
+        break;
+      case "workflowName":
+        const nameA = a.workflowName || a.workflowId;
+        const nameB = b.workflowName || b.workflowId;
+        comparison = nameA.localeCompare(nameB);
+        break;
+      case "status":
+        comparison = a.status.localeCompare(b.status);
+        break;
+      case "startedAt":
+        comparison = new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime();
+        break;
+    }
+    
+    return sortOrder === "asc" ? comparison : -comparison;
+  });
 
   if (isLoading) {
     return (
@@ -43,10 +91,10 @@ export function ExecutionsTable({ executions, isLoading, onViewDetail }: Executi
     );
   }
 
-  const totalPages = Math.ceil(executions.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(sortedExecutions.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
-  const currentExecutions = executions.slice(startIndex, endIndex);
+  const currentExecutions = sortedExecutions.slice(startIndex, endIndex);
 
   const formatDate = (dateString: string) => {
     return format(new Date(dateString), "MMM dd, yyyy HH:mm:ss");
@@ -73,10 +121,50 @@ export function ExecutionsTable({ executions, isLoading, onViewDetail }: Executi
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>Workflow</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Started At</TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 font-semibold"
+                    onClick={() => handleSort("id")}
+                  >
+                    ID
+                    {getSortIcon("id")}
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 font-semibold"
+                    onClick={() => handleSort("workflowName")}
+                  >
+                    Workflow
+                    {getSortIcon("workflowName")}
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 font-semibold"
+                    onClick={() => handleSort("status")}
+                  >
+                    Status
+                    {getSortIcon("status")}
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 font-semibold"
+                    onClick={() => handleSort("startedAt")}
+                  >
+                    Started At
+                    {getSortIcon("startedAt")}
+                  </Button>
+                </TableHead>
                 <TableHead>Duration</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -121,8 +209,8 @@ export function ExecutionsTable({ executions, isLoading, onViewDetail }: Executi
 
         <div className="flex items-center justify-between mt-4">
           <div className="text-sm text-muted-foreground">
-            Showing {startIndex + 1} to {Math.min(endIndex, executions.length)} of{" "}
-            {executions.length} executions
+            Showing {startIndex + 1} to {Math.min(endIndex, sortedExecutions.length)} of{" "}
+            {sortedExecutions.length} executions
           </div>
           <div className="flex gap-2">
             <Button

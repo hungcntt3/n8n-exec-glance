@@ -8,6 +8,57 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 217 91% 60%;
+
+    --radius: 0.75rem;
+
+    /* Status colors */
+    --status-success: 142 76% 36%;
+    --status-success-foreground: 0 0% 100%;
+    --status-error: 0 84% 60%;
+    --status-error-foreground: 0 0% 100%;
+    --status-running: 217 91% 60%;
+    --status-running-foreground: 0 0% 100%;
+    --status-waiting: 43 96% 56%;
+    --status-waiting-foreground: 222 47% 11%;
+    --status-canceled: 215 14% 34%;
+    --status-canceled-foreground: 210 40% 98%;
+
+    /* Chart colors */
+    --chart-1: 142 76% 36%;
+    --chart-2: 0 84% 60%;
+    --chart-3: 217 91% 60%;
+    --chart-4: 43 96% 56%;
+    --chart-5: 215 14% 34%;
+  }
+
+  .dark {
     --background: 222 47% 11%;
     --foreground: 210 40% 98%;
 
@@ -36,9 +87,7 @@ All colors MUST be HSL.
     --input: 217 33% 22%;
     --ring: 217 91% 60%;
 
-    --radius: 0.75rem;
-
-    /* Status colors */
+    /* Status colors remain the same */
     --status-success: 142 76% 36%;
     --status-success-foreground: 0 0% 100%;
     --status-error: 0 84% 60%;
@@ -50,7 +99,7 @@ All colors MUST be HSL.
     --status-canceled: 215 14% 34%;
     --status-canceled-foreground: 210 40% 98%;
 
-    /* Chart colors */
+    /* Chart colors remain the same */
     --chart-1: 142 76% 36%;
     --chart-2: 0 84% 60%;
     --chart-3: 217 91% 60%;
