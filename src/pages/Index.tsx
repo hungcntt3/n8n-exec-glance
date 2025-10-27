@@ -5,6 +5,8 @@ import { ExecutionsChart } from "@/components/ExecutionsChart";
 import { ExecutionsTable } from "@/components/ExecutionsTable";
 import { ExecutionFilters } from "@/components/ExecutionFilters";
 import { ExecutionDetailDialog } from "@/components/ExecutionDetailDialog";
+import { WorkflowsTable } from "@/components/WorkflowsTable";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MOCK_EXECUTIONS, MOCK_WORKFLOWS } from "@/lib/mockData";
 import { Execution, ExecutionStatus } from "@/types/n8n";
 
@@ -77,26 +79,39 @@ const Index = () => {
         />
       </div>
 
-      <ExecutionFilters
-        selectedStatus={selectedStatus}
-        selectedWorkflow={selectedWorkflow}
-        workflows={workflows}
-        onStatusChange={setSelectedStatus}
-        onWorkflowChange={setSelectedWorkflow}
-        onReset={handleResetFilters}
-      />
+      <Tabs defaultValue="executions" className="space-y-6">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="executions">Executions</TabsTrigger>
+          <TabsTrigger value="workflows">Workflows</TabsTrigger>
+        </TabsList>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-1">
-          <ExecutionsChart executions={filteredExecutions} />
-        </div>
-        <div className="lg:col-span-2">
-          <ExecutionsTable
-            executions={filteredExecutions}
-            onViewDetail={handleViewDetail}
+        <TabsContent value="executions" className="space-y-6">
+          <ExecutionFilters
+            selectedStatus={selectedStatus}
+            selectedWorkflow={selectedWorkflow}
+            workflows={workflows}
+            onStatusChange={setSelectedStatus}
+            onWorkflowChange={setSelectedWorkflow}
+            onReset={handleResetFilters}
           />
-        </div>
-      </div>
+
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-1">
+              <ExecutionsChart executions={filteredExecutions} />
+            </div>
+            <div className="lg:col-span-2">
+              <ExecutionsTable
+                executions={filteredExecutions}
+                onViewDetail={handleViewDetail}
+              />
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="workflows">
+          <WorkflowsTable workflows={workflows} />
+        </TabsContent>
+      </Tabs>
 
       <ExecutionDetailDialog
         execution={selectedExecution}
