@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Activity, CheckCircle2, XCircle, PlayCircle } from "lucide-react";
 import { OverviewCard } from "@/components/OverviewCard";
 import { ExecutionsChart } from "@/components/ExecutionsChart";
@@ -11,7 +11,11 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MOCK_EXECUTIONS, MOCK_WORKFLOWS } from "@/lib/mockData";
 import { Execution, ExecutionStatus, Workflow } from "@/types/n8n";
-
+import { fetchExecutionDetail, fetchExecutions, fetchWorkflows, toggleWorkflowActive } from "@/lib/api";
+interface WorkflowNamesMap {
+  workflowId: string;
+  workflowName: string;
+}
 const Index = () => {
   const [selectedExecution, setSelectedExecution] = useState<Execution | null>(null);
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null);
@@ -19,13 +23,72 @@ const Index = () => {
   const [workflowDialogOpen, setWorkflowDialogOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<ExecutionStatus | undefined>();
   const [selectedWorkflowFilter, setSelectedWorkflowFilter] = useState<string | undefined>();
-
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   // Use mock data - replace with real API calls later
-  const executions = MOCK_EXECUTIONS;
-  const workflows = MOCK_WORKFLOWS;
+  const [executions, setExecutions] = useState<Execution[]>([]);
+  const [executionsTotal, setExecutionsTotal] = useState<Execution[]>([]);
+  const [workflows, setWorkflows] = useState<Workflow[]>([]);
+  const [toggleWorkflow ,setToggleWorkflowActive] = useState<boolean>(false);
+   const loadData = async (limit = 10,includeData = false ) => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const data = await fetchExecutions({
+            projectId: "yxhyeLFN7bv5SYj3",
+            workflowId:  selectedWorkflowFilter,
+            status: selectedStatus,
+            limit: 250,
+            includeData: false
+            // includeData: true
+        });
+        const data2 = await fetchExecutions({
+            projectId: "yxhyeLFN7bv5SYj3",
+            workflowId:  selectedWorkflowFilter,
+            status: selectedStatus,
+            limit: 250,
+            // includeData: true
+        });
+        setExecutionsTotal(data2.data || []);
+        
+        // Giả sử API trả về { data: [...], total: ... }
+        setExecutions(data.data || []);
+        const workflowsData = await fetchWorkflows({
+          tags: "po-agent",
+          limit: 250,
+
+        });
+        setWorkflows(workflowsData.data || []);
+
+      }
+      catch (err) {
+        setError("Không thể tải dữ liệu executions");
+        console.error(err);
+      }
+      finally {
+        setLoading(false);
+      }
+    };
+  useEffect(() => {
+    loadData();
+  }, [selectedStatus, selectedWorkflowFilter,toggleWorkflow]);
+
+  const handleToggleWorkflowActive = async (id: string, active: boolean) => {
+    try {
+      const data = await toggleWorkflowActive(id, active);
+      setToggleWorkflowActive(!toggleWorkflow);
+    } catch (err) {
+      console.error("Failed to toggle workflow active status", err);
+    }
+  };
+
 
   const filteredExecutions = useMemo(() => {
     return executions.filter((execution) => {
+      console.log("Filtering execution:", selectedWorkflowFilter);
+      // load lại khi filter thay đổi
+      
       if (selectedStatus && execution.status !== selectedStatus) return false;
       if (selectedWorkflowFilter && execution.workflowId !== selectedWorkflowFilter) return false;
       return true;
@@ -33,16 +96,19 @@ const Index = () => {
   }, [executions, selectedStatus, selectedWorkflowFilter]);
 
   const stats = useMemo(() => {
-    const total = executions.length;
-    const success = executions.filter((e) => e.status === "success").length;
-    const error = executions.filter((e) => e.status === "error").length;
-    const running = executions.filter((e) => e.status === "running").length;
+    
+    const total = executionsTotal.length;
+    const success = executionsTotal.filter((e) => e.status === "success").length;
+    const error = executionsTotal.filter((e) => e.status === "error").length;
+    const running = executionsTotal.filter((e) => e.status === "running").length;
 
     return { total, success, error, running };
-  }, [executions]);
+  }, [executionsTotal]);
 
-  const handleViewExecutionDetail = (execution: Execution) => {
-    setSelectedExecution(execution);
+  const handleViewExecutionDetail = async (execution: Execution) => {
+    // get execution detail from API if needed
+     let executionDetail =  await fetchExecutionDetail(execution.id, true);
+    setSelectedExecution(executionDetail);
     setExecutionDialogOpen(true);
   };
 
@@ -68,10 +134,12 @@ const Index = () => {
         <ThemeToggle />
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+    
+
+<div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <OverviewCard
           title="Total Executions"
-          value={stats.total}
+          value={stats.total == 250 ? "250+" : stats.total}
           icon={Activity}
         />
         <OverviewCard
@@ -114,14 +182,19 @@ const Index = () => {
             <div className="lg:col-span-2">
               <ExecutionsTable
                 executions={filteredExecutions}
+                isLoading={loading}
                 onViewDetail={handleViewExecutionDetail}
+                workflowNamesMap= {workflows.map(wf => ({workflowId: wf.id, workflowName: wf.name}))}
               />
             </div>
           </div>
         </TabsContent>
 
         <TabsContent value="workflows">
-          <WorkflowsTable workflows={workflows} onViewDetail={handleViewWorkflowDetail} />
+          <WorkflowsTable workflows={workflows}  onToggleActive={(id, active) => {
+    handleToggleWorkflowActive(id, active);
+    // Gọi API PUT /workflows/:id/activate hoặc /deactivate ở đây
+  }} onViewDetail={handleViewWorkflowDetail} />
         </TabsContent>
       </Tabs>
 

@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Execution } from "@/types/n8n";
+import { formatDistanceToNow } from "date-fns";
 import {
   Table,
   TableBody,
@@ -14,23 +15,29 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Eye, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
+import { fetchExecutions } from "@/lib/api";
 
+interface WorkflowNamesMap {
+  workflowId: string;
+  workflowName: string;
+}
 interface ExecutionsTableProps {
   executions: Execution[];
   isLoading?: boolean;
+  workflowNamesMap?: WorkflowNamesMap[]
   onViewDetail?: (execution: Execution) => void;
 }
 
 const ITEMS_PER_PAGE = 10;
 
-type SortField = "id" | "workflowName" | "status" | "startedAt";
+type SortField = "id" | "workflowName" | "status" | "startedAt" | "stoppedAt";
 type SortOrder = "asc" | "desc";
 
-export function ExecutionsTable({ executions, isLoading, onViewDetail }: ExecutionsTableProps) {
+export function ExecutionsTable({ executions, isLoading, workflowNamesMap, onViewDetail }: ExecutionsTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
+  const [executionsPerPage, setExecutionsPerPage] = useState(executions);
   const [sortField, setSortField] = useState<SortField>("startedAt");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
-
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortOrder(sortOrder === "asc" ? "desc" : "asc");
@@ -39,7 +46,35 @@ export function ExecutionsTable({ executions, isLoading, onViewDetail }: Executi
       setSortOrder("asc");
     }
   };
-
+   const loadData = async (limit = 10,includeData = false, cursor?:string ) => {
+        try {
+          
+          const data = await fetchExecutions({
+              projectId: "yxhyeLFN7bv5SYj3",
+              workflowId:  executionsPerPage[0]?.workflowId,
+              limit: limit,
+              includeData: includeData,
+              cursor: cursor
+              // includeData: true
+          });
+          setExecutionsPerPage(data.data || []);
+          
+  
+        }
+        catch (err) {
+          console.error(err);
+        }
+        finally {
+        }
+      };
+  // check onchange then call executions
+  const handleNextPage = () => {
+    setCurrentPage((p) => Math.min(totalPages, p + 1));
+    useEffect(() => {
+      loadData(10,true, executionsPerPage[executionsPerPage.length -1]?.id);
+    }, [executionsPerPage]);
+    
+  }
   const getSortIcon = (field: SortField) => {
     if (sortField !== field) {
       return <ArrowUpDown className="ml-2 h-4 w-4" />;
@@ -59,8 +94,11 @@ export function ExecutionsTable({ executions, isLoading, onViewDetail }: Executi
         comparison = parseInt(a.id) - parseInt(b.id);
         break;
       case "workflowName":
-        const nameA = a.workflowName || a.workflowId;
-        const nameB = b.workflowName || b.workflowId;
+        let nameA = a.workflowName || a.workflowId;
+        let nameB = b.workflowName || b.workflowId;
+        
+        workflowNamesMap && (nameA = workflowNamesMap[a.workflowId] || nameA);
+        workflowNamesMap && (nameB = workflowNamesMap[b.workflowId] || nameB);
         comparison = nameA.localeCompare(nameB);
         break;
       case "status":
@@ -132,15 +170,14 @@ export function ExecutionsTable({ executions, isLoading, onViewDetail }: Executi
                     {getSortIcon("id")}
                   </Button>
                 </TableHead>
-                <TableHead>
+                 <TableHead>
                   <Button
                     variant="ghost"
                     size="sm"
                     className="h-8 font-semibold"
-                    onClick={() => handleSort("workflowName")}
+                    onClick={() => {}}
                   >
-                    Workflow
-                    {getSortIcon("workflowName")}
+                    Workflow Id
                   </Button>
                 </TableHead>
                 <TableHead>
@@ -148,10 +185,22 @@ export function ExecutionsTable({ executions, isLoading, onViewDetail }: Executi
                     variant="ghost"
                     size="sm"
                     className="h-8 font-semibold"
-                    onClick={() => handleSort("status")}
+                    onClick={() => handleSort("workflowName")}
+                  >
+                    Workflow Name
+                    {getSortIcon("workflowName")}
+                  </Button>
+                </TableHead>
+                
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 font-semibold"
+                    onClick={() => {}}
                   >
                     Status
-                    {getSortIcon("status")}
+                    {/* {getSortIcon("status")} */}
                   </Button>
                 </TableHead>
                 <TableHead>
@@ -163,6 +212,17 @@ export function ExecutionsTable({ executions, isLoading, onViewDetail }: Executi
                   >
                     Started At
                     {getSortIcon("startedAt")}
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 font-semibold"
+                    onClick={() => handleSort("stoppedAt")}
+                  >
+                    Stopped At
+                    {getSortIcon("stoppedAt")}
                   </Button>
                 </TableHead>
                 <TableHead>Duration</TableHead>
@@ -177,14 +237,25 @@ export function ExecutionsTable({ executions, isLoading, onViewDetail }: Executi
                   onClick={() => onViewDetail?.(execution)}
                 >
                   <TableCell className="font-mono text-sm">{execution.id}</TableCell>
+                   <TableCell className="font-medium">
+                     {execution.workflowId}
+                  </TableCell>
                   <TableCell className="font-medium">
-                    {execution.workflowName || `Workflow ${execution.workflowId}`}
+                     {execution?.workflowData?.name || execution.workflowId}
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={execution.status} />
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {formatDate(execution.startedAt)}
+                  </TableCell>
+                   <TableCell className="text-sm text-muted-foreground">
+                     {execution.stoppedAt
+                    ? formatDistanceToNow(new Date(execution.stoppedAt), {
+                        addSuffix: true,
+                      })
+                    : "Đang chạy..."}
+                    {/* {formatDate(execution.stoppedAt)} */}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {getDuration(execution.startedAt, execution.stoppedAt)}
@@ -209,8 +280,8 @@ export function ExecutionsTable({ executions, isLoading, onViewDetail }: Executi
 
         <div className="flex items-center justify-between mt-4">
           <div className="text-sm text-muted-foreground">
-            Showing {startIndex + 1} to {Math.min(endIndex, sortedExecutions.length)} of{" "}
-            {sortedExecutions.length} executions
+            Showing {startIndex + 1} to {Math.min(endIndex, sortedExecutions.length)}
+            {/* {sortedExecutions.length} executions */}
           </div>
           <div className="flex gap-2">
             <Button
@@ -226,7 +297,6 @@ export function ExecutionsTable({ executions, isLoading, onViewDetail }: Executi
               variant="outline"
               size="sm"
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
             >
               Next
               <ChevronRight className="h-4 w-4" />

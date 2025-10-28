@@ -1,4 +1,4 @@
-import { Execution } from "@/types/n8n";
+import { Execution, ExecutionDetail } from "@/types/n8n";
 import {
   Dialog,
   DialogContent,
@@ -11,7 +11,7 @@ import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
 
 interface ExecutionDetailDialogProps {
-  execution: Execution | null;
+  execution: ExecutionDetail | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -61,9 +61,15 @@ export function ExecutionDetailDialog({
             </div>
 
             <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Workflow</p>
+              <p className="text-sm font-medium text-muted-foreground">Workflow Id</p>
               <p className="text-sm">
-                {execution.workflowName || `Workflow ${execution.workflowId}`}
+                {execution.workflowName || `${execution.workflowId}`}
+              </p>
+            </div>
+              <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Workflow Name</p>
+              <p className="text-sm">
+                {execution.workflowName || `Workflow ${execution.workflowData.name}`}
               </p>
             </div>
 
@@ -97,6 +103,46 @@ export function ExecutionDetailDialog({
               <p className="text-sm font-medium text-muted-foreground">Finished</p>
               <p className="text-sm">{execution.finished ? "Yes" : "No"}</p>
             </div>
+
+            {/* Log lỗi */}
+           {execution.status === "error" && execution.data && (
+  <>
+    <Separator />
+    <div className="space-y-1">
+      <p className="text-sm font-medium text-red-600">Error Log</p>
+      <div className="text-sm  p-2 rounded space-y-1">
+        {/* Axios style */}
+        {execution.data.resultData.error?.errorResponse?.reason && (
+          <>
+            <p><strong>Message:</strong> {execution.data.resultData.error?.errorResponse.reason.message}</p>
+            <p><strong>Name:</strong> {execution.data.resultData.error?.errorResponse.reason.name}</p>
+            <p><strong>Code:</strong> {execution.data.resultData.error?.errorResponse.reason.code}</p>
+            <p><strong>Status:</strong> {execution.data.resultData.error?.errorResponse.status}</p>
+          </>
+        )}
+
+        {/* NodeApiError / SSL errors */}
+        {execution.data.resultData.error?.messages && execution.data.resultData.error?.messages.length > 0 && (
+          <p><strong>Messages:</strong> {execution.data.resultData.error?.messages.join("; ")}</p>
+        )}
+        {execution.data.resultData.error?.httpCode && (
+          <p><strong>HTTP Code:</strong> {execution.data.resultData.error?.httpCode}</p>
+        )}
+        {execution.data.resultData.error?.message && (
+          <p><strong>Message:</strong> {execution.data.resultData.error?.message}</p>
+        )}
+        {execution.data.resultData.error?.stack && (
+          <details className="text-xs mt-1">
+            <summary className="cursor-pointer text-red-700">Show stack</summary>
+            <pre className="whitespace-pre-wrap">{execution.data.resultData.error?.stack}</pre>
+          </details>
+        )}
+      </div>
+    </div>
+  </>
+)}
+
+
           </div>
         </div>
       </DialogContent>
