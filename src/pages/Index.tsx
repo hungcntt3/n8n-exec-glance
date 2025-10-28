@@ -7,6 +7,7 @@ import { ExecutionFilters } from "@/components/ExecutionFilters";
 import { ExecutionDetailDialog } from "@/components/ExecutionDetailDialog";
 import { WorkflowsTable } from "@/components/WorkflowsTable";
 import { WorkflowDetailDialog } from "@/components/WorkflowDetailDialog";
+import { WorkflowFilters } from "@/components/WorkflowFilters";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Chatbot } from "@/components/Chatbot";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ const Index = () => {
   const [executions, setExecutions] = useState<Execution[]>([]);
   const [executionsTotal, setExecutionsTotal] = useState<Execution[]>([]);
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
+  const [filteredWorkflows, setFilteredWorkflows] = useState<Workflow[]>([]);
   const [toggleWorkflow ,setToggleWorkflowActive] = useState<boolean>(false);
    const loadData = async (limit = 10,includeData = false ) => {
       try {
@@ -64,6 +66,7 @@ const Index = () => {
 
         });
         setWorkflows(workflowsData.data || []);
+        setFilteredWorkflows(workflowsData.data || []);
 
       }
       catch (err) {
@@ -199,11 +202,34 @@ const Index = () => {
           />
         </TabsContent>
 
-        <TabsContent value="workflows">
-          <WorkflowsTable workflows={workflows}  onToggleActive={(id, active) => {
-    handleToggleWorkflowActive(id, active);
-    // Gọi API PUT /workflows/:id/activate hoặc /deactivate ở đây
-  }} onViewDetail={handleViewWorkflowDetail} />
+        <TabsContent value="workflows" className="space-y-6">
+          <WorkflowFilters onFilterChange={(filters) => {
+            let filtered = [...workflows];
+            
+            if (filters.active !== undefined) {
+              filtered = filtered.filter(w => w.active === filters.active);
+            }
+            
+            if (filters.isArchived !== undefined) {
+              filtered = filtered.filter(w => w.isArchived === filters.isArchived);
+            }
+            
+            if (filters.name) {
+              filtered = filtered.filter(w => 
+                w.name.toLowerCase().includes(filters.name!.toLowerCase())
+              );
+            }
+            
+            setFilteredWorkflows(filtered);
+          }} />
+          
+          <WorkflowsTable 
+            workflows={filteredWorkflows}  
+            onToggleActive={(id, active) => {
+              handleToggleWorkflowActive(id, active);
+            }} 
+            onViewDetail={handleViewWorkflowDetail} 
+          />
         </TabsContent>
       </Tabs>
 
