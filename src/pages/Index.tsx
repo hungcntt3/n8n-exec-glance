@@ -1,22 +1,26 @@
 import { useState, useMemo, useEffect } from "react";
-import { Activity, CheckCircle2, XCircle, PlayCircle } from "lucide-react";
+import { Activity, CheckCircle2, XCircle, PlayCircle, Calendar } from "lucide-react";
 import { OverviewCard } from "@/components/OverviewCard";
-import { ExecutionsChart } from "@/components/ExecutionsChart";
+import { AdvancedExecutionsChart } from "@/components/AdvancedExecutionsChart";
 import { ExecutionsTable } from "@/components/ExecutionsTable";
 import { ExecutionFilters } from "@/components/ExecutionFilters";
 import { ExecutionDetailDialog } from "@/components/ExecutionDetailDialog";
 import { WorkflowsTable } from "@/components/WorkflowsTable";
 import { WorkflowDetailDialog } from "@/components/WorkflowDetailDialog";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Chatbot } from "@/components/Chatbot";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MOCK_EXECUTIONS, MOCK_WORKFLOWS } from "@/lib/mockData";
 import { Execution, ExecutionStatus, Workflow } from "@/types/n8n";
 import { fetchExecutionDetail, fetchExecutions, fetchWorkflows, toggleWorkflowActive } from "@/lib/api";
+import { useNavigate } from "react-router-dom";
 interface WorkflowNamesMap {
   workflowId: string;
   workflowName: string;
 }
 const Index = () => {
+  const navigate = useNavigate();
   const [selectedExecution, setSelectedExecution] = useState<Execution | null>(null);
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null);
   const [executionDialogOpen, setExecutionDialogOpen] = useState(false);
@@ -131,7 +135,13 @@ const Index = () => {
             Monitor and manage your workflow executions
           </p>
         </div>
-        <ThemeToggle />
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => navigate("/scheduler")}>
+            <Calendar className="mr-2 h-4 w-4" />
+            Scheduler
+          </Button>
+          <ThemeToggle />
+        </div>
       </div>
 
     
@@ -175,19 +185,18 @@ const Index = () => {
             onReset={handleResetFilters}
           />
 
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="lg:col-span-1">
-              <ExecutionsChart executions={filteredExecutions} />
-            </div>
-            <div className="lg:col-span-2">
-              <ExecutionsTable
-                executions={filteredExecutions}
-                isLoading={loading}
-                onViewDetail={handleViewExecutionDetail}
-                workflowNamesMap= {workflows.map(wf => ({workflowId: wf.id, workflowName: wf.name}))}
-              />
-            </div>
-          </div>
+          <AdvancedExecutionsChart
+            executions={executions}
+            workflows={workflows}
+            isLoading={loading}
+          />
+
+          <ExecutionsTable
+            executions={filteredExecutions}
+            isLoading={loading}
+            onViewDetail={handleViewExecutionDetail}
+            workflowNamesMap={workflows.map(wf => ({workflowId: wf.id, workflowName: wf.name}))}
+          />
         </TabsContent>
 
         <TabsContent value="workflows">
@@ -209,6 +218,8 @@ const Index = () => {
         open={workflowDialogOpen}
         onOpenChange={setWorkflowDialogOpen}
       />
+
+      <Chatbot />
     </div>
   );
 };

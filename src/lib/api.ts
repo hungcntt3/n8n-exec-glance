@@ -93,3 +93,44 @@ export async function toggleWorkflowActive(id: string, active: boolean): Promise
     throw new Error(`Failed to ${active ? 'activate' : 'deactivate'} workflow`);
   }
 }
+
+// Scheduler APIs
+export async function fetchSchedulers(): Promise<{ data: any[] }> {
+  const response = await fetch(`${API_BASE_URL}/webhook/schedulers`, {
+    method: "GET",
+    headers,
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch schedulers");
+  }
+
+  return response.json();
+}
+
+export async function toggleScheduler(id: string, enabled: boolean): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/webhook/schedulers/${id}/toggle`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ enabled }),
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to toggle scheduler`);
+  }
+}
+
+// Chatbot API
+export async function sendChatMessage(message: string): Promise<{ message: string }> {
+  const response = await fetch(`${API_BASE_URL}/webhook/chat`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ message }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to send chat message");
+  }
+
+  return response.json();
+}

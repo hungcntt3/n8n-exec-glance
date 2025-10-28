@@ -11,9 +11,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AdvancedPagination } from "@/components/AdvancedPagination";
 import {
-  ChevronLeft,
-  ChevronRight,
   Play,
   Pause,
   Archive,
@@ -29,10 +28,8 @@ interface WorkflowsTableProps {
   workflows: Workflow[];
   isLoading?: boolean;
   onViewDetail?: (workflow: Workflow) => void;
-  onToggleActive?: (id: string, active: boolean) => void; // 👈 callback để bật/tắt
+  onToggleActive?: (id: string, active: boolean) => void;
 }
-
-const ITEMS_PER_PAGE = 10;
 
 type SortField = "name" | "active" | "createdAt" | "isArchived";
 type SortOrder = "asc" | "desc";
@@ -44,6 +41,7 @@ export function WorkflowsTable({
   onToggleActive,
 }: WorkflowsTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [sortField, setSortField] = useState<SortField>("createdAt");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
 
@@ -87,10 +85,15 @@ export function WorkflowsTable({
     return sortOrder === "asc" ? comparison : -comparison;
   });
 
-  const totalPages = Math.ceil(sortedWorkflows.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const totalPages = Math.ceil(sortedWorkflows.length / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
   const currentWorkflows = sortedWorkflows.slice(startIndex, endIndex);
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setCurrentPage(1);
+  };
 
   const formatDate = (dateString: string) => {
     return format(new Date(dateString), "MMM dd, yyyy");
@@ -229,36 +232,14 @@ export function WorkflowsTable({
           </Table>
         </div>
 
-        {/* Pagination */}
-        <div className="flex items-center justify-between mt-4">
-          <div className="text-sm text-muted-foreground">
-            Showing {startIndex + 1} to{" "}
-            {Math.min(endIndex, sortedWorkflows.length)} of{" "}
-            {sortedWorkflows.length} workflows
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                setCurrentPage((p) => Math.min(totalPages, p + 1))
-              }
-              disabled={currentPage === totalPages}
-            >
-              Next
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+        <AdvancedPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={sortedWorkflows.length}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={handlePageSizeChange}
+        />
       </CardContent>
     </Card>
   );
