@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { ArrowLeft, Clock, Play, Pause } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Scheduler } from "@/types/scheduler";
-import { fetchSchedulers, toggleScheduler } from "@/lib/api";
+import { fetchWorkflows, toggleWorkflowActive } from "@/lib/api";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -22,8 +22,21 @@ const SchedulerPage = () => {
   const loadSchedulers = async () => {
     try {
       setLoading(true);
-      const data = await fetchSchedulers();
-      setSchedulers(data.data || []);
+      const workflowsData = await fetchWorkflows({
+        tags: "scheduler",
+        limit: 250,
+      });
+      const schedulerData = workflowsData.data.map((wf: any) => ({
+        id: wf.id,
+        name: wf.name,
+        workflowId: wf.id,
+        workflowName: wf.name,
+        cron: wf.settings?.executionOrder || "N/A",
+        enabled: wf.active,
+        createdAt: wf.createdAt,
+        updatedAt: wf.updatedAt,
+      }));
+      setSchedulers(schedulerData || []);
     } catch (error) {
       console.error("Failed to load schedulers:", error);
       toast.error("Failed to load schedulers");
@@ -39,7 +52,7 @@ const SchedulerPage = () => {
   const handleToggle = async (id: string, enabled: boolean) => {
     setTogglingId(id);
     try {
-      await toggleScheduler(id, enabled);
+      await toggleWorkflowActive(id, enabled);
       setSchedulers((prev) =>
         prev.map((s) => (s.id === id ? { ...s, enabled } : s))
       );

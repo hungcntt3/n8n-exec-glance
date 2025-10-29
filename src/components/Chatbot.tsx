@@ -95,44 +95,46 @@ export function Chatbot() {
           <X className="h-4 w-4" />
         </Button>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col p-4 pt-0 gap-4">
-        <ScrollArea className="flex-1 pr-4" ref={scrollRef}>
-          <div className="space-y-4">
-            {messages.length === 0 && (
-              <div className="text-center text-muted-foreground py-8">
-                Ask me anything about your workflows and executions!
-              </div>
-            )}
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
-              >
+      <CardContent className="flex-1 flex flex-col p-4 pt-0 gap-4 overflow-hidden">
+        <div className="flex-1 overflow-hidden">
+          <ScrollArea className="h-full pr-4">
+            <div className="space-y-4 pb-4">
+              {messages.length === 0 && (
+                <div className="text-center text-muted-foreground py-8">
+                  Ask me anything about your workflows and executions!
+                </div>
+              )}
+              {messages.map((message) => (
                 <div
-                  className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                    message.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted"
-                  }`}
+                  key={message.id}
+                  className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                 >
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                  <p className="text-xs opacity-70 mt-1">
-                    {message.timestamp.toLocaleTimeString()}
-                  </p>
+                  <div
+                    className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                      message.role === "user"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted"
+                    }`}
+                  >
+                    <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                    <p className="text-xs opacity-70 mt-1">
+                      {message.timestamp.toLocaleTimeString()}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
-            {isLoading && (
-              <div className="flex justify-start">
-                <div className="bg-muted rounded-lg px-4 py-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
+              ))}
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-muted rounded-lg px-4 py-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        </ScrollArea>
+              )}
+            </div>
+          </ScrollArea>
+        </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-shrink-0">
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
