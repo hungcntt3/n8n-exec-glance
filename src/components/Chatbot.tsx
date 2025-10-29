@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessageCircle, Send, X, Loader2 } from "lucide-react";
+import { MessageCircle, Send, X, Loader2, Trash2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { sendChatMessage } from "@/lib/api";
 import { toast } from "sonner";
@@ -14,12 +14,42 @@ interface Message {
   timestamp: Date;
 }
 
+const STORAGE_KEY = "n8n-chatbot-history";
+
 export function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Load chat history from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const messagesWithDates = parsed.map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp),
+        }));
+        setMessages(messagesWithDates);
+      }
+    } catch (error) {
+      console.error("Failed to load chat history:", error);
+    }
+  }, []);
+
+  // Save chat history to localStorage
+  useEffect(() => {
+    if (messages.length > 0) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+      } catch (error) {
+        console.error("Failed to save chat history:", error);
+      }
+    }
+  }, [messages]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -75,6 +105,12 @@ export function Chatbot() {
     }
   };
 
+  const handleClearHistory = () => {
+    setMessages([]);
+    localStorage.removeItem(STORAGE_KEY);
+    toast.success("Chat history cleared");
+  };
+
   if (!isOpen) {
     return (
       <Button
@@ -91,9 +127,21 @@ export function Chatbot() {
     <Card className="fixed bottom-6 right-6 w-[400px] h-[600px] shadow-2xl flex flex-col animate-scale-in">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
         <CardTitle className="text-lg">n8n Assistant</CardTitle>
-        <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
-          <X className="h-4 w-4" />
-        </Button>
+        <div className="flex gap-1">
+          {messages.length > 0 && (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={handleClearHistory}
+              title="Clear history"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+          <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col p-4 pt-0 gap-4 overflow-hidden">
         <div className="flex-1 overflow-hidden">
