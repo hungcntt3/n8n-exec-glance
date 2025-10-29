@@ -2,22 +2,23 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { ArrowLeft, Clock, Play, Pause } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { Scheduler } from "@/types/scheduler";
 import { fetchWorkflows, toggleWorkflowActive } from "@/lib/api";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { WorkflowsTable } from "@/components/WorkflowsTable";
+import { WorkflowFilters, WorkflowFilterValues } from "@/components/WorkflowFilters";
+import { Workflow } from "@/types/n8n";
 
 const SchedulerPage = () => {
   const navigate = useNavigate();
-  const [schedulers, setSchedulers] = useState<Scheduler[]>([]);
+  const [workflows, setWorkflows] = useState<Workflow[]>([]);
+  const [filteredWorkflows, setFilteredWorkflows] = useState<Workflow[]>([]);
+  const [filters, setFilters] = useState<Partial<WorkflowFilterValues>>({});
   const [loading, setLoading] = useState(true);
-  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const loadSchedulers = async () => {
     try {
@@ -26,17 +27,8 @@ const SchedulerPage = () => {
         tags: "scheduler",
         limit: 250,
       });
-      const schedulerData = workflowsData.data.map((wf: any) => ({
-        id: wf.id,
-        name: wf.name,
-        workflowId: wf.id,
-        workflowName: wf.name,
-        cron: wf.settings?.executionOrder || "N/A",
-        enabled: wf.active,
-        createdAt: wf.createdAt,
-        updatedAt: wf.updatedAt,
-      }));
-      setSchedulers(schedulerData || []);
+      setWorkflows(workflowsData.data || []);
+      setFilteredWorkflows(workflowsData.data || []);
     } catch (error) {
       console.error("Failed to load schedulers:", error);
       toast.error("Failed to load schedulers");
@@ -49,41 +41,66 @@ const SchedulerPage = () => {
     loadSchedulers();
   }, []);
 
-  const handleToggle = async (id: string, enabled: boolean) => {
-    setTogglingId(id);
-    try {
-      await toggleWorkflowActive(id, enabled);
-      setSchedulers((prev) =>
-        prev.map((s) => (s.id === id ? { ...s, enabled } : s))
-      );
-      toast.success(`Scheduler ${enabled ? "enabled" : "disabled"} successfully`);
-    } catch (error) {
-      console.error("Failed to toggle scheduler:", error);
-      toast.error("Failed to toggle scheduler");
-    } finally {
-      setTogglingId(null);
+  const handleFilterChange = (newFilters: Partial<WorkflowFilterValues>) => {
+    setFilters(newFilters);
+    
+    let filtered = [...workflows];
+    
+    if (newFilters.id) {
+      filtered = filtered.filter(w => w.id?.toLowerCase().includes(newFilters.id!.toLowerCase()));
     }
+    
+    if (newFilters.name) {
+      filtered = filtered.filter(w => w.name?.toLowerCase().includes(newFilters.name!.toLowerCase()));
+    }
+    
+    if (newFilters.active !== undefined) {
+      filtered = filtered.filter(w => w.active === newFilters.active);
+    }
+    
+    if (newFilters.isArchived !== undefined) {
+      filtered = filtered.filter(w => w.isArchived === newFilters.isArchived);
+    }
+    
+    if (newFilters.createdAtFrom) {
+      const fromDate = new Date(newFilters.createdAtFrom);
+      filtered = filtered.filter(w => new Date(w.createdAt) >= fromDate);
+    }
+    
+    if (newFilters.createdAtTo) {
+      const toDate = new Date(newFilters.createdAtTo);
+      filtered = filtered.filter(w => new Date(w.createdAt) <= toDate);
+    }
+    
+    setFilteredWorkflows(filtered);
+  };
+
+  const handleResetFilters = () => {
+    setFilters({});
+    setFilteredWorkflows(workflows);
   };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-background p-6 space-y-6">
         <div className="flex items-center justify-between">
-          <Skeleton className="h-10 w-48" />
-          <Skeleton className="h-10 w-10" />
-        </div>
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-6 w-32" />
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-16 w-full" />
-              ))}
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="space-y-2">
+              <h1 className="text-4xl font-bold tracking-tight">Scheduler Management</h1>
+              <p className="text-muted-foreground">
+                Manage and monitor your workflow schedules
+              </p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          <ThemeToggle />
+        </div>
+        <div className="animate-fade-in space-y-6">
+          <div className="h-32 bg-muted animate-pulse rounded-lg"></div>
+          <div className="h-96 bg-muted animate-pulse rounded-lg"></div>
+        </div>
       </div>
     );
   }
@@ -105,85 +122,30 @@ const SchedulerPage = () => {
         <ThemeToggle />
       </div>
 
+      <WorkflowFilters 
+        filters={filters}
+        onFilterChange={handleFilterChange}
+        onReset={handleResetFilters}
+      />
+
       <Card className="animate-fade-in">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Active Schedulers</CardTitle>
             <Badge variant="outline" className="text-lg">
-              {schedulers.filter((s) => s.enabled).length} / {schedulers.length} Active
+              <Clock className="mr-1 h-4 w-4" />
+              {filteredWorkflows.filter((w) => w.active).length} / {filteredWorkflows.length} Active
             </Badge>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Workflow</TableHead>
-                  <TableHead>Schedule (Cron)</TableHead>
-                  <TableHead>Next Run</TableHead>
-                  <TableHead>Last Run</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {schedulers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      No schedulers found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  schedulers.map((scheduler) => (
-                    <TableRow key={scheduler.id} className="hover:bg-muted/50 transition-colors">
-                      <TableCell className="font-medium">{scheduler.name}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {scheduler.workflowName || scheduler.workflowId}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="font-mono text-xs">
-                          <Clock className="mr-1 h-3 w-3" />
-                          {scheduler.cron}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {scheduler.nextRunAt
-                          ? format(new Date(scheduler.nextRunAt), "MMM dd, HH:mm")
-                          : "-"}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {scheduler.lastRunAt
-                          ? format(new Date(scheduler.lastRunAt), "MMM dd, HH:mm")
-                          : "-"}
-                      </TableCell>
-                      <TableCell>
-                        {scheduler.enabled ? (
-                          <Badge className="bg-status-success text-status-success-foreground">
-                            <Play className="mr-1 h-3 w-3" />
-                            Enabled
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-muted">
-                            <Pause className="mr-1 h-3 w-3" />
-                            Disabled
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Switch
-                          checked={scheduler.enabled}
-                          onCheckedChange={(checked) => handleToggle(scheduler.id, checked)}
-                          disabled={togglingId === scheduler.id}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+          <WorkflowsTable 
+            workflows={filteredWorkflows} 
+            onToggleActive={async (id, active) => {
+              await toggleWorkflowActive(id, active);
+              loadSchedulers();
+            }}
+          />
         </CardContent>
       </Card>
     </div>

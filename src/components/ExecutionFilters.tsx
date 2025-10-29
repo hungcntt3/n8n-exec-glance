@@ -10,11 +10,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, X, XCircle } from "lucide-react";
+import { Search, X, XCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface ExecutionFiltersProps {
   filters: Partial<ExecutionInputFilters>;
@@ -29,6 +34,7 @@ export function ExecutionFilters({
   onChange,
   onReset,
 }: ExecutionFiltersProps) {
+  const [isOpen, setIsOpen] = useState(false);
   const [localFilters, setLocalFilters] = useState<Partial<ExecutionInputFilters>>(filters);
 
   // Sync with parent filters
@@ -79,16 +85,23 @@ export function ExecutionFilters({
   };
 
   return (
-    <Card className="animate-fade-in">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Search className="h-5 w-5" />
-          Advanced Search - Executions
-        </CardTitle>
-      </CardHeader>
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <Card className="animate-fade-in">
+        <CardHeader className="py-3">
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" className="w-full justify-between hover:bg-muted p-3">
+              <div className="flex items-center gap-2">
+                <Search className="h-5 w-5" />
+                <CardTitle className="text-base">Advanced Search - Executions</CardTitle>
+              </div>
+              {isOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+            </Button>
+          </CollapsibleTrigger>
+        </CardHeader>
 
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <CollapsibleContent>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
           {/* Execution ID */}
           <div className="space-y-2">
@@ -289,20 +302,22 @@ export function ExecutionFilters({
               )}
             </div>
           </div>
-        </div>
+            </div>
 
-        <div className="flex gap-2">
-          <Button size="sm" onClick={handleApply}>
-            <Search className="mr-2 h-4 w-4" />
-            Apply Filters
-          </Button>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleApply}>
+                <Search className="mr-2 h-4 w-4" />
+                Apply Filters
+              </Button>
 
-          <Button variant="outline" size="sm" onClick={handleReset}>
-            <X className="mr-2 h-4 w-4" />
-            Reset
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+              <Button variant="outline" size="sm" onClick={handleReset}>
+                <X className="mr-2 h-4 w-4" />
+                Reset
+              </Button>
+            </div>
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   );
 }

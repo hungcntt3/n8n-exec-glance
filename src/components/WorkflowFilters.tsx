@@ -12,8 +12,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, X, XCircle } from "lucide-react";
+import { Search, X, XCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { Workflow } from "@/types/n8n";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 // Extended filter interface based on Workflow fields
 export interface WorkflowFilterValues {
@@ -33,6 +38,7 @@ interface WorkflowFiltersProps {
 }
 
 export function WorkflowFilters({ filters, onFilterChange, onReset }: WorkflowFiltersProps) {
+  const [isOpen, setIsOpen] = useState(false);
   const [localFilters, setLocalFilters] = useState<Partial<WorkflowFilterValues>>(filters);
 
   // Sync with parent filters
@@ -70,15 +76,22 @@ export function WorkflowFilters({ filters, onFilterChange, onReset }: WorkflowFi
   };
 
   return (
-    <Card className="animate-fade-in">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Search className="h-5 w-5" />
-          Advanced Search - Workflows
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <Card className="animate-fade-in">
+        <CardHeader className="py-3">
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" className="w-full justify-between hover:bg-muted p-3">
+              <div className="flex items-center gap-2">
+                <Search className="h-5 w-5" />
+                <CardTitle className="text-base">Advanced Search - Workflows</CardTitle>
+              </div>
+              {isOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+            </Button>
+          </CollapsibleTrigger>
+        </CardHeader>
+        <CollapsibleContent>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Workflow ID */}
           <div className="space-y-2">
             <Label htmlFor="workflow-id">Workflow ID</Label>
@@ -265,19 +278,21 @@ export function WorkflowFilters({ filters, onFilterChange, onReset }: WorkflowFi
               )}
             </div>
           </div> */}
-        </div>
+            </div>
 
-        <div className="flex gap-2">
-          <Button onClick={handleApplyFilters} size="sm">
-            <Search className="mr-2 h-4 w-4" />
-            Apply Filters
-          </Button>
-          <Button onClick={handleReset} variant="outline" size="sm">
-            <X className="mr-2 h-4 w-4" />
-            Reset
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+            <div className="flex gap-2">
+              <Button onClick={handleApplyFilters} size="sm">
+                <Search className="mr-2 h-4 w-4" />
+                Apply Filters
+              </Button>
+              <Button onClick={handleReset} variant="outline" size="sm">
+                <X className="mr-2 h-4 w-4" />
+                Reset
+              </Button>
+            </div>
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   );
 }
