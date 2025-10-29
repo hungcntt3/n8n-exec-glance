@@ -7,116 +7,244 @@ import { ExecutionFilters } from "@/components/ExecutionFilters";
 import { ExecutionDetailDialog } from "@/components/ExecutionDetailDialog";
 import { WorkflowsTable } from "@/components/WorkflowsTable";
 import { WorkflowDetailDialog } from "@/components/WorkflowDetailDialog";
-import { WorkflowFilters } from "@/components/WorkflowFilters";
+import { WorkflowFilters, WorkflowFilterValues } from "@/components/WorkflowFilters";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Chatbot } from "@/components/Chatbot";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MOCK_EXECUTIONS, MOCK_WORKFLOWS } from "@/lib/mockData";
-import { Execution, ExecutionStatus, Workflow } from "@/types/n8n";
+import { Execution, ExecutionInputFilters, ExecutionStatus, Workflow } from "@/types/n8n";
 import { fetchExecutionDetail, fetchExecutions, fetchWorkflows, toggleWorkflowActive } from "@/lib/api";
 import { useNavigate } from "react-router-dom";
+import { set } from "date-fns";
+
 interface WorkflowNamesMap {
   workflowId: string;
   workflowName: string;
 }
+
 const Index = () => {
   const navigate = useNavigate();
   const [selectedExecution, setSelectedExecution] = useState<Execution | null>(null);
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null);
   const [executionDialogOpen, setExecutionDialogOpen] = useState(false);
   const [workflowDialogOpen, setWorkflowDialogOpen] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState<ExecutionStatus | undefined>();
-  const [selectedWorkflowFilter, setSelectedWorkflowFilter] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Use mock data - replace with real API calls later
+  
+  // State for executions
   const [executions, setExecutions] = useState<Execution[]>([]);
-  const [executionsTotal, setExecutionsTotal] = useState<Execution[]>([]);
+  const [executionsRaw, setExecutionsRaw] = useState<Execution[]>([]);
+  const [executionFilters, setExecutionFilters] = useState<Partial<ExecutionInputFilters>>({});
+  
+  // State for workflows
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
-  const [filteredWorkflows, setFilteredWorkflows] = useState<Workflow[]>([]);
-  const [toggleWorkflow ,setToggleWorkflowActive] = useState<boolean>(false);
-   const loadData = async (limit = 10,includeData = false ) => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const data = await fetchExecutions({
-            projectId: "yxhyeLFN7bv5SYj3",
-            workflowId:  selectedWorkflowFilter,
-            status: selectedStatus,
-            limit: 250,
-            includeData: false
-            // includeData: true
-        });
-        const data2 = await fetchExecutions({
-            projectId: "yxhyeLFN7bv5SYj3",
-            workflowId:  selectedWorkflowFilter,
-            status: selectedStatus,
-            limit: 250,
-            // includeData: true
-        });
-        setExecutionsTotal(data2.data || []);
-        
-        // Giả sử API trả về { data: [...], total: ... }
-        setExecutions(data.data || []);
+  const [workflowsRaw, setWorkflowsRaw] = useState<Workflow[]>([]);
+  const [workflowFilters, setWorkflowFilters] = useState<Partial<WorkflowFilterValues>>({});
+  const [toggleWorkflow, setToggleWorkflowActive] = useState<boolean>(false);
+
+  // Load workflows from API
+  const loadWorkflows = async () => {
+    try {
         const workflowsData = await fetchWorkflows({
           tags: "po-agent",
           limit: 250,
+      });
 
-        });
+      setWorkflowsRaw(workflowsData.data || []);
         setWorkflows(workflowsData.data || []);
-        setFilteredWorkflows(workflowsData.data || []);
+      
+      return workflowsData.data || [];
+    } catch (err) {
+      console.error("Failed to load workflows:", err);
+      return [];
+    }
+  };
 
-      }
-      catch (err) {
+  // Load executions from API with workflowId filter
+  const loadExecutions = async (workflowId?: string) => {
+    try {
+      setLoading(true);
+      const executionsData = await fetchExecutions({
+        projectId: "yxhyeLFN7bv5SYj3",
+        workflowId: workflowId,
+        limit: 250,
+        includeData: false
+      });
+      
+      setExecutionsRaw(executionsData.data || []);
+      setExecutions(executionsData.data || []);
+    } catch (err) {
         setError("Không thể tải dữ liệu executions");
         console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load data on initial mount
+  const loadData = async () => {
+    try {
+      setError(null);
+      
+      // Fetch workflows first
+      const workflows = await loadWorkflows();
+      
+      // Set filter with first workflow ID, which will trigger loadExecutions via useEffect
+      const firstWorkflowId = workflows?.[0]?.id;
+      if (firstWorkflowId) {
+        setExecutionFilters({ workflowId: firstWorkflowId });
       }
-      finally {
-        setLoading(false);
-      }
-    };
+    } catch (err) {
+      setError("Không thể tải dữ liệu");
+      console.error(err);
+    }
+  };
+
+  // Load data on mount and when toggle workflow changes
   useEffect(() => {
     loadData();
-  }, [selectedStatus, selectedWorkflowFilter,toggleWorkflow]);
+  }, [toggleWorkflow]);
+
+  // Reload executions when workflowId filter changes
+  useEffect(() => {
+    if (executionFilters.workflowId) {
+      loadExecutions(executionFilters.workflowId);
+    }
+  }, [executionFilters.workflowId]);
+
+  // Apply client-side filters (except workflowId which triggers API call)
+  useEffect(() => {
+    // Create a copy of filters without workflowId since it's handled by API
+    const { workflowId, ...clientFilters } = executionFilters;
+    const filtered = filterExecutions(executionsRaw, clientFilters);
+    setExecutions(filtered);
+  }, [executionFilters, executionsRaw]);
+
+  // Filter workflows when filters change
+  useEffect(() => {
+    const filtered = filterWorkflows(workflowsRaw, workflowFilters);
+    setWorkflows(filtered);
+  }, [workflowFilters, workflowsRaw]);
+
+  // Filter executions function
+  const filterExecutions = (
+    data: Execution[],
+    filters: Partial<ExecutionInputFilters>
+  ): Execution[] => {
+    let result = [...data];
+
+    if (filters.id) {
+      result = result.filter((e) =>
+        e.id.toLowerCase().includes(filters.id!.toLowerCase())
+      );
+    }
+
+    if (filters.status) {
+      result = result.filter((e) => e.status === filters.status);
+    }
+
+    if (filters.workflowId) {
+      result = result.filter((e) => e.workflowId === filters.workflowId);
+    }
+
+    if (typeof filters.finished === "boolean") {
+      result = result.filter((e) => e.finished === filters.finished);
+    }
+
+    if (filters.mode) {
+      result = result.filter((e) =>
+        e.mode.toLowerCase().includes(filters.mode!.toLowerCase())
+      );
+    }
+
+    if (filters.startedAt) {
+      const startDate = new Date(filters.startedAt);
+      result = result.filter((e) => new Date(e.startedAt) >= startDate);
+    }
+
+    if (filters.stoppedAt) {
+      const stopDate = new Date(filters.stoppedAt);
+      result = result.filter(
+        (e) => e.stoppedAt && new Date(e.stoppedAt) <= stopDate
+      );
+    }
+
+    return result;
+  };
+
+  // Filter workflows function
+  const filterWorkflows = (
+    data: Workflow[],
+    filters: Partial<WorkflowFilterValues>
+  ): Workflow[] => {
+    let result = [...data];
+
+    if (filters.id) {
+      result = result.filter((w) =>
+        w.id.toLowerCase().includes(filters.id!.toLowerCase())
+      );
+    }
+
+    if (filters.name) {
+      result = result.filter((w) =>
+        w.name.toLowerCase().includes(filters.name!.toLowerCase())
+      );
+    }
+
+    if (typeof filters.active === "boolean") {
+      result = result.filter((w) => w.active === filters.active);
+    }
+
+    if (typeof filters.isArchived === "boolean") {
+      result = result.filter((w) => w.isArchived === filters.isArchived);
+    }
+
+    if (filters.createdAtFrom) {
+      const fromDate = new Date(filters.createdAtFrom);
+      result = result.filter((w) => new Date(w.createdAt) >= fromDate);
+    }
+
+    if (filters.createdAtTo) {
+      const toDate = new Date(filters.createdAtTo);
+      result = result.filter((w) => new Date(w.createdAt) <= toDate);
+    }
+
+    if (filters.projectId) {
+      result = result.filter(
+        (w) => w.project?.id.toLowerCase().includes(filters.projectId!.toLowerCase())
+      );
+    }
+
+    return result;
+  };
 
   const handleToggleWorkflowActive = async (id: string, active: boolean) => {
     try {
-      const data = await toggleWorkflowActive(id, active);
+      await toggleWorkflowActive(id, active);
       setToggleWorkflowActive(!toggleWorkflow);
     } catch (err) {
       console.error("Failed to toggle workflow active status", err);
     }
   };
 
-
-  const filteredExecutions = useMemo(() => {
-    return executions.filter((execution) => {
-      console.log("Filtering execution:", selectedWorkflowFilter);
-      // load lại khi filter thay đổi
-      
-      if (selectedStatus && execution.status !== selectedStatus) return false;
-      if (selectedWorkflowFilter && execution.workflowId !== selectedWorkflowFilter) return false;
-      return true;
-    });
-  }, [executions, selectedStatus, selectedWorkflowFilter]);
-
   const stats = useMemo(() => {
-    
-    const total = executionsTotal.length;
-    const success = executionsTotal.filter((e) => e.status === "success").length;
-    const error = executionsTotal.filter((e) => e.status === "error").length;
-    const running = executionsTotal.filter((e) => e.status === "running").length;
+    const total = executionsRaw.length;
+    const success = executionsRaw.filter((e) => e.status === "success").length;
+    const error = executionsRaw.filter((e) => e.status === "error").length;
+    const running = executionsRaw.filter((e) => e.status === "running").length;
 
     return { total, success, error, running };
-  }, [executionsTotal]);
+  }, [executionsRaw]);
 
   const handleViewExecutionDetail = async (execution: Execution) => {
-    // get execution detail from API if needed
-     let executionDetail =  await fetchExecutionDetail(execution.id, true);
+    try {
+      const executionDetail = await fetchExecutionDetail(execution.id, true);
     setSelectedExecution(executionDetail);
     setExecutionDialogOpen(true);
+    } catch (err) {
+      console.error("Failed to fetch execution detail", err);
+    }
   };
 
   const handleViewWorkflowDetail = (workflow: Workflow) => {
@@ -124,10 +252,26 @@ const Index = () => {
     setWorkflowDialogOpen(true);
   };
 
-  const handleResetFilters = () => {
-    setSelectedStatus(undefined);
-    setSelectedWorkflowFilter(undefined);
+  // Handle execution filters
+  const handleExecutionFiltersChange = (newFilters: Partial<ExecutionInputFilters>) => {
+    setExecutionFilters(newFilters);
   };
+
+  const handleResetExecutionFilters = () => {
+    // Reset to first workflow instead of empty
+    const resetFilters = workflowsRaw.length > 0 ? { workflowId: workflowsRaw[0].id } : {};
+    setExecutionFilters(resetFilters);
+  };
+
+  // Handle workflow filters
+  const handleWorkflowFiltersChange = (newFilters: Partial<WorkflowFilterValues>) => {
+    setWorkflowFilters(newFilters);
+  };
+
+  const handleResetWorkflowFilters = () => {
+    setWorkflowFilters({});
+};
+
 
   return (
     <div className="min-h-screen bg-background p-6 space-y-6">
@@ -180,54 +324,35 @@ const Index = () => {
 
         <TabsContent value="executions" className="space-y-6">
           <ExecutionFilters
-            selectedStatus={selectedStatus}
-            selectedWorkflow={selectedWorkflowFilter}
-            workflows={workflows}
-            onStatusChange={setSelectedStatus}
-            onWorkflowChange={setSelectedWorkflowFilter}
-            onReset={handleResetFilters}
+            filters={executionFilters}
+            onChange={handleExecutionFiltersChange}
+            workflows={workflowsRaw.map(wf => ({ id: wf.id, name: wf.name }))}
+            onReset={handleResetExecutionFilters}
           />
 
           <AdvancedExecutionsChart
             executions={executions}
-            workflows={workflows}
             isLoading={loading}
           />
 
           <ExecutionsTable
-            executions={filteredExecutions}
+            executions={executions}
             isLoading={loading}
             onViewDetail={handleViewExecutionDetail}
-            workflowNamesMap={workflows.map(wf => ({workflowId: wf.id, workflowName: wf.name}))}
+            workflowNamesMap={workflowsRaw.map(wf => ({workflowId: wf.id, workflowName: wf.name}))}
           />
         </TabsContent>
 
         <TabsContent value="workflows" className="space-y-6">
-          <WorkflowFilters onFilterChange={(filters) => {
-            let filtered = [...workflows];
-            
-            if (filters.active !== undefined) {
-              filtered = filtered.filter(w => w.active === filters.active);
-            }
-            
-            if (filters.isArchived !== undefined) {
-              filtered = filtered.filter(w => w.isArchived === filters.isArchived);
-            }
-            
-            if (filters.name) {
-              filtered = filtered.filter(w => 
-                w.name.toLowerCase().includes(filters.name!.toLowerCase())
-              );
-            }
-            
-            setFilteredWorkflows(filtered);
-          }} />
+          <WorkflowFilters 
+            filters={workflowFilters}
+            onFilterChange={handleWorkflowFiltersChange}
+            onReset={handleResetWorkflowFilters}
+          />
           
           <WorkflowsTable 
-            workflows={filteredWorkflows}  
-            onToggleActive={(id, active) => {
-              handleToggleWorkflowActive(id, active);
-            }} 
+            workflows={workflows}  
+            onToggleActive={handleToggleWorkflowActive} 
             onViewDetail={handleViewWorkflowDetail} 
           />
         </TabsContent>

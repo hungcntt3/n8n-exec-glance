@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Execution } from "@/types/n8n";
+import { Execution, ExecutionInputFilters } from "@/types/n8n";
 import {
   Table,
   TableBody,
@@ -41,7 +41,58 @@ export function ExecutionsTable({
   const [pageSize, setPageSize] = useState(10);
   const [sortField, setSortField] = useState<SortField>("startedAt");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+ const handleSearchExecutions = (
+  executions: Execution[],
+  newFilters: Partial<ExecutionInputFilters>
+): ExecutionInputFilters[] => {
+  let executionsFiltered = [...executions];
 
+  if (newFilters.id) {
+    executionsFiltered = executionsFiltered.filter((e) =>
+      e.id.toLowerCase().includes(newFilters.id!.toLowerCase())
+    );
+  }
+
+  if (typeof newFilters.finished === "boolean") {
+    executionsFiltered = executionsFiltered.filter(
+      (e) => e.finished === newFilters.finished
+    );
+  }
+
+  if (newFilters.mode) {
+    executionsFiltered = executionsFiltered.filter((e) =>
+      e.mode.toLowerCase().includes(newFilters.mode!.toLowerCase())
+    );
+  }
+
+  if (newFilters.status) {
+    executionsFiltered = executionsFiltered.filter(
+      (e) => e.status === newFilters.status
+    );
+  }
+
+  if (newFilters.workflowId) {
+    executionsFiltered = executionsFiltered.filter(
+      (e) => e.workflowId === newFilters.workflowId
+    );
+  }
+
+  if (newFilters.startedAt) {
+    const startDate = new Date(newFilters.startedAt);
+    executionsFiltered = executionsFiltered.filter(
+      (e) => new Date(e.startedAt) >= startDate
+    );
+  }
+
+  if (newFilters.stoppedAt) {
+    const stopDate = new Date(newFilters.stoppedAt);
+    executionsFiltered = executionsFiltered.filter(
+      (e) => e.stoppedAt && new Date(e.stoppedAt) <= stopDate
+    );
+  }
+
+  return executionsFiltered;
+};
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortOrder(sortOrder === "asc" ? "desc" : "asc");

@@ -1,3 +1,6 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,103 +12,262 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, X } from "lucide-react";
-import { useState } from "react";
+import { Search, X, XCircle } from "lucide-react";
+import { Workflow } from "@/types/n8n";
 
+// Extended filter interface based on Workflow fields
 export interface WorkflowFilterValues {
-  active?: boolean;
+  id?: string;
   name?: string;
+  active?: boolean;
   isArchived?: boolean;
+  createdAtFrom?: string;
+  createdAtTo?: string;
+  projectId?: string;
 }
 
 interface WorkflowFiltersProps {
-  onFilterChange: (filters: WorkflowFilterValues) => void;
+  filters: Partial<WorkflowFilterValues>;
+  onFilterChange: (filters: Partial<WorkflowFilterValues>) => void;
+  onReset: () => void;
 }
 
-export function WorkflowFilters({ onFilterChange }: WorkflowFiltersProps) {
-  const [activeStatus, setActiveStatus] = useState<string>("all");
-  const [archivedStatus, setArchivedStatus] = useState<string>("all");
-  const [searchQuery, setSearchQuery] = useState<string>("");
+export function WorkflowFilters({ filters, onFilterChange, onReset }: WorkflowFiltersProps) {
+  const [localFilters, setLocalFilters] = useState<Partial<WorkflowFilterValues>>(filters);
+
+  // Sync with parent filters
+  useEffect(() => {
+    setLocalFilters(filters);
+  }, [filters]);
+
+  const handleChange = (key: keyof WorkflowFilterValues, value: any) => {
+    const updated = { ...localFilters, [key]: value === "" ? undefined : value };
+    setLocalFilters(updated);
+  };
+
+  const handleClearField = (key: keyof WorkflowFilterValues) => {
+    const updated = { ...localFilters };
+    delete updated[key];
+    setLocalFilters(updated);
+  };
 
   const handleApplyFilters = () => {
-    const filters: WorkflowFilterValues = {};
+    // Remove empty values
+    const cleanFilters: Partial<WorkflowFilterValues> = {};
     
-    if (activeStatus === "active") {
-      filters.active = true;
-    } else if (activeStatus === "inactive") {
-      filters.active = false;
-    }
+    Object.entries(localFilters).forEach(([key, value]) => {
+      if (value !== undefined && value !== "" && value !== null) {
+        (cleanFilters as any)[key] = value;
+      }
+    });
     
-    if (archivedStatus === "archived") {
-      filters.isArchived = true;
-    } else if (archivedStatus === "not-archived") {
-      filters.isArchived = false;
-    }
-    
-    if (searchQuery.trim()) {
-      filters.name = searchQuery.trim();
-    }
-
-    onFilterChange(filters);
+    onFilterChange(cleanFilters);
   };
 
   const handleReset = () => {
-    setActiveStatus("all");
-    setArchivedStatus("all");
-    setSearchQuery("");
-    onFilterChange({});
+    setLocalFilters({});
+    onReset();
   };
 
   return (
-    <Card className="mb-6">
+    <Card className="animate-fade-in">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Search className="h-5 w-5" />
           Advanced Search - Workflows
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Workflow ID */}
+          <div className="space-y-2">
+            <Label htmlFor="workflow-id">Workflow ID</Label>
+            <div className="relative">
+              <Input
+                id="workflow-id"
+                placeholder="Enter workflow ID..."
+                value={localFilters.id || ""}
+                onChange={(e) => handleChange("id", e.target.value)}
+                className="pr-8"
+              />
+              {localFilters.id && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+                  onClick={() => handleClearField("id")}
+                >
+                  <XCircle className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Workflow Name */}
+          <div className="space-y-2">
+            <Label htmlFor="workflow-name">Workflow Name</Label>
+            <div className="relative">
+              <Input
+                id="workflow-name"
+                placeholder="Enter workflow name..."
+                value={localFilters.name || ""}
+                onChange={(e) => handleChange("name", e.target.value)}
+                className="pr-8"
+              />
+              {localFilters.name && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+                  onClick={() => handleClearField("name")}
+                >
+                  <XCircle className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Active Status */}
           <div className="space-y-2">
             <Label htmlFor="active-status">Active Status</Label>
-            <Select value={activeStatus} onValueChange={setActiveStatus}>
-              <SelectTrigger id="active-status">
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="relative">
+              <Select 
+                value={localFilters.active?.toString() || "all"} 
+                onValueChange={(v) => handleChange("active", v === "all" ? undefined : v === "true")}
+              >
+                <SelectTrigger id="active-status">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="true">Active</SelectItem>
+                  <SelectItem value="false">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+              {localFilters.active !== undefined && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-8 top-0 h-full px-2 hover:bg-transparent z-10"
+                  onClick={() => handleClearField("active")}
+                >
+                  <XCircle className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                </Button>
+              )}
+            </div>
           </div>
 
+          {/* Archive Status */}
           <div className="space-y-2">
             <Label htmlFor="archived-status">Archive Status</Label>
-            <Select value={archivedStatus} onValueChange={setArchivedStatus}>
-              <SelectTrigger id="archived-status">
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="not-archived">Not Archived</SelectItem>
-                <SelectItem value="archived">Archived</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="relative">
+              <Select 
+                value={localFilters.isArchived?.toString() || "all"} 
+                onValueChange={(v) => handleChange("isArchived", v === "all" ? undefined : v === "true")}
+              >
+                <SelectTrigger id="archived-status">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="false">Not Archived</SelectItem>
+                  <SelectItem value="true">Archived</SelectItem>
+                </SelectContent>
+              </Select>
+              {localFilters.isArchived !== undefined && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-8 top-0 h-full px-2 hover:bg-transparent z-10"
+                  onClick={() => handleClearField("isArchived")}
+                >
+                  <XCircle className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                </Button>
+              )}
+            </div>
           </div>
 
+          {/* Created At From */}
           <div className="space-y-2">
-            <Label htmlFor="workflow-search">Search by Name</Label>
-            <Input
-              id="workflow-search"
-              placeholder="Enter workflow name..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+            <Label htmlFor="created-from">Created After</Label>
+            <div className="relative">
+              <Input
+                id="created-from"
+                type="datetime-local"
+                value={localFilters.createdAtFrom || ""}
+                onChange={(e) => handleChange("createdAtFrom", e.target.value)}
+                className="pr-8"
+              />
+              {localFilters.createdAtFrom && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+                  onClick={() => handleClearField("createdAtFrom")}
+                >
+                  <XCircle className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                </Button>
+              )}
+            </div>
           </div>
+
+          {/* Created At To */}
+          <div className="space-y-2">
+            <Label htmlFor="created-to">Created Before</Label>
+            <div className="relative">
+              <Input
+                id="created-to"
+                type="datetime-local"
+                value={localFilters.createdAtTo || ""}
+                onChange={(e) => handleChange("createdAtTo", e.target.value)}
+                className="pr-8"
+              />
+              {localFilters.createdAtTo && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+                  onClick={() => handleClearField("createdAtTo")}
+                >
+                  <XCircle className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Project ID */}
+          {/* <div className="space-y-2">
+            <Label htmlFor="project-id">Project ID</Label>
+            <div className="relative">
+              <Input
+                id="project-id"
+                placeholder="Enter project ID..."
+                value={localFilters.projectId || ""}
+                onChange={(e) => handleChange("projectId", e.target.value)}
+                className="pr-8"
+              />
+              {localFilters.projectId && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+                  onClick={() => handleClearField("projectId")}
+                >
+                  <XCircle className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                </Button>
+              )}
+            </div>
+          </div> */}
         </div>
 
-        <div className="flex gap-2 mt-4">
+        <div className="flex gap-2">
           <Button onClick={handleApplyFilters} size="sm">
             <Search className="mr-2 h-4 w-4" />
             Apply Filters

@@ -47,7 +47,7 @@ export function Chatbot() {
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: response.message || "No response",
+        content: response.output || "No response",
         timestamp: new Date(),
       };
 
@@ -136,7 +136,7 @@ export function Chatbot() {
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyUp ={handleKeyPress}
             placeholder="Type your message..."
             disabled={isLoading}
           />

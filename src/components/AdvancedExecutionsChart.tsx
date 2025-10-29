@@ -1,86 +1,63 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LineChart, Line, BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { Execution, Workflow } from "@/types/n8n";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from "recharts";
+import { Execution } from "@/types/n8n";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format, startOfWeek, endOfWeek, eachDayOfInterval, startOfMonth, endOfMonth, eachMonthOfInterval, startOfYear, endOfYear } from "date-fns";
+import { format, subDays, eachDayOfInterval } from "date-fns";
+import { TrendingUp, TrendingDown, Activity } from "lucide-react";
 
 interface AdvancedExecutionsChartProps {
   executions: Execution[];
-  workflows: Workflow[];
   isLoading?: boolean;
 }
 
-type TimeRange = "weekly" | "monthly" | "yearly";
-type ChartType = "line" | "bar" | "area";
+type TimeRange = "7days" | "14days" | "30days";
 
-export function AdvancedExecutionsChart({ executions, workflows, isLoading }: AdvancedExecutionsChartProps) {
-  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string>(workflows[0]?.id || "");
-  const [timeRange, setTimeRange] = useState<TimeRange>("weekly");
-  const [chartType, setChartType] = useState<ChartType>("line");
+export function AdvancedExecutionsChart({ executions, isLoading }: AdvancedExecutionsChartProps) {
+  const [timeRange, setTimeRange] = useState<TimeRange>("7days");
 
-  const chartData = useMemo(() => {
-    if (!selectedWorkflowId) return [];
-
-    const filtered = executions.filter((e) => e.workflowId === selectedWorkflowId);
+  const { chartData, stats } = useMemo(() => {
     const now = new Date();
+    const daysCount = timeRange === "7days" ? 7 : timeRange === "14days" ? 14 : 30;
+    const startDate = subDays(now, daysCount - 1);
+    const days = eachDayOfInterval({ start: startDate, end: now });
 
-    if (timeRange === "weekly") {
-      const weekStart = startOfWeek(now);
-      const weekEnd = endOfWeek(now);
-      const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
-
-      return days.map((day) => {
-        const dayExecutions = filtered.filter(
+    const data = days.map((day) => {
+      const dayExecutions = executions.filter(
           (e) => format(new Date(e.startedAt), "yyyy-MM-dd") === format(day, "yyyy-MM-dd")
         );
         return {
-          name: format(day, "EEE"),
+        date: format(day, "MMM dd"),
           success: dayExecutions.filter((e) => e.status === "success").length,
           error: dayExecutions.filter((e) => e.status === "error").length,
           running: dayExecutions.filter((e) => e.status === "running").length,
           total: dayExecutions.length,
         };
       });
-    } else if (timeRange === "monthly") {
-      const yearStart = startOfYear(now);
-      const yearEnd = endOfYear(now);
-      const months = eachMonthOfInterval({ start: yearStart, end: yearEnd });
 
-      return months.map((month) => {
-        const monthExecutions = filtered.filter(
-          (e) => format(new Date(e.startedAt), "yyyy-MM") === format(month, "yyyy-MM")
-        );
-        return {
-          name: format(month, "MMM"),
-          success: monthExecutions.filter((e) => e.status === "success").length,
-          error: monthExecutions.filter((e) => e.status === "error").length,
-          running: monthExecutions.filter((e) => e.status === "running").length,
-          total: monthExecutions.length,
-        };
-      });
-    } else {
-      // yearly - last 5 years
-      const years = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 4 + i);
-      
-      return years.map((year) => {
-        const yearExecutions = filtered.filter(
-          (e) => new Date(e.startedAt).getFullYear() === year
-        );
-        return {
-          name: year.toString(),
-          success: yearExecutions.filter((e) => e.status === "success").length,
-          error: yearExecutions.filter((e) => e.status === "error").length,
-          running: yearExecutions.filter((e) => e.status === "running").length,
-          total: yearExecutions.length,
-        };
-      });
-    }
-  }, [executions, selectedWorkflowId, timeRange]);
+    const totalExecutions = executions.length;
+    const successCount = executions.filter((e) => e.status === "success").length;
+    const errorCount = executions.filter((e) => e.status === "error").length;
+    const successRate = totalExecutions > 0 ? ((successCount / totalExecutions) * 100).toFixed(1) : "0";
+    
+    // Calculate trend (compare first half vs second half)
+    const halfIndex = Math.floor(data.length / 2);
+    const firstHalf = data.slice(0, halfIndex).reduce((sum, item) => sum + item.total, 0);
+    const secondHalf = data.slice(halfIndex).reduce((sum, item) => sum + item.total, 0);
+    const trend = secondHalf > firstHalf ? "up" : secondHalf < firstHalf ? "down" : "stable";
 
-  const totalCount = chartData.reduce((sum, item) => sum + item.total, 0);
+        return {
+      chartData: data,
+      stats: {
+        total: totalExecutions,
+        success: successCount,
+        error: errorCount,
+        successRate,
+        trend,
+      },
+    };
+  }, [executions, timeRange]);
 
   if (isLoading) {
     return (
@@ -89,107 +66,113 @@ export function AdvancedExecutionsChart({ executions, workflows, isLoading }: Ad
           <Skeleton className="h-6 w-48" />
         </CardHeader>
         <CardContent>
-          <Skeleton className="h-[300px] w-full" />
+          <Skeleton className="h-[350px] w-full" />
         </CardContent>
       </Card>
     );
   }
 
-  const renderChart = () => {
-    const commonProps = {
-      data: chartData,
-      margin: { top: 5, right: 30, left: 20, bottom: 5 },
-    };
-
-    const chartContent = (
-      <>
-        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-        <XAxis dataKey="name" className="text-xs" />
-        <YAxis className="text-xs" />
-        <Tooltip
-          contentStyle={{
-            backgroundColor: "hsl(var(--card))",
-            border: "1px solid hsl(var(--border))",
-            borderRadius: "var(--radius)",
-          }}
-        />
-        <Legend />
-      </>
-    );
-
-    if (chartType === "line") {
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
       return (
-        <LineChart {...commonProps}>
-          {chartContent}
-          <Line type="monotone" dataKey="success" stroke="hsl(var(--chart-1))" strokeWidth={2} name="Success" />
-          <Line type="monotone" dataKey="error" stroke="hsl(var(--chart-2))" strokeWidth={2} name="Error" />
-          <Line type="monotone" dataKey="running" stroke="hsl(var(--chart-3))" strokeWidth={2} name="Running" />
-        </LineChart>
-      );
-    } else if (chartType === "bar") {
-      return (
-        <BarChart {...commonProps}>
-          {chartContent}
-          <Bar dataKey="success" fill="hsl(var(--chart-1))" name="Success" />
-          <Bar dataKey="error" fill="hsl(var(--chart-2))" name="Error" />
-          <Bar dataKey="running" fill="hsl(var(--chart-3))" name="Running" />
-        </BarChart>
-      );
-    } else {
-      return (
-        <AreaChart {...commonProps}>
-          {chartContent}
-          <Area type="monotone" dataKey="success" stackId="1" stroke="hsl(var(--chart-1))" fill="hsl(var(--chart-1))" fillOpacity={0.6} name="Success" />
-          <Area type="monotone" dataKey="error" stackId="1" stroke="hsl(var(--chart-2))" fill="hsl(var(--chart-2))" fillOpacity={0.6} name="Error" />
-          <Area type="monotone" dataKey="running" stackId="1" stroke="hsl(var(--chart-3))" fill="hsl(var(--chart-3))" fillOpacity={0.6} name="Running" />
-        </AreaChart>
+        <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
+          <p className="font-semibold mb-2">{payload[0].payload.date}</p>
+          <div className="space-y-1 text-sm">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-green-500" />
+              <span>Success: {payload[0].value}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-red-500" />
+              <span>Error: {payload[1].value}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-blue-500" />
+              <span>Running: {payload[2].value}</span>
+            </div>
+            <div className="pt-1 border-t border-border mt-2">
+              <span className="font-semibold">Total: {payload[0].payload.total}</span>
+            </div>
+          </div>
+        </div>
       );
     }
+    return null;
   };
 
   return (
     <Card className="animate-fade-in">
       <CardHeader>
         <div className="flex items-center justify-between flex-wrap gap-4">
-          <CardTitle>Execution Statistics</CardTitle>
-          <div className="flex items-center gap-2">
-            <Select value={selectedWorkflowId} onValueChange={setSelectedWorkflowId}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Select workflow" />
-              </SelectTrigger>
-              <SelectContent>
-                {workflows.map((wf) => (
-                  <SelectItem key={wf.id} value={wf.id}>
-                    {wf.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Execution Trends
+            </CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Daily execution statistics over time
+            </p>
           </div>
-        </div>
-        <div className="flex items-center justify-between flex-wrap gap-4 mt-4">
           <Tabs value={timeRange} onValueChange={(v) => setTimeRange(v as TimeRange)}>
             <TabsList>
-              <TabsTrigger value="weekly">Weekly</TabsTrigger>
-              <TabsTrigger value="monthly">Monthly</TabsTrigger>
-              <TabsTrigger value="yearly">Yearly</TabsTrigger>
-            </TabsList>
-          </Tabs>
-          <Tabs value={chartType} onValueChange={(v) => setChartType(v as ChartType)}>
-            <TabsList>
-              <TabsTrigger value="line">Line</TabsTrigger>
-              <TabsTrigger value="bar">Bar</TabsTrigger>
-              <TabsTrigger value="area">Area</TabsTrigger>
+              <TabsTrigger value="7days">7 Days</TabsTrigger>
+              <TabsTrigger value="14days">14 Days</TabsTrigger>
+              <TabsTrigger value="30days">30 Days</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
-        <div className="text-sm text-muted-foreground mt-2">
-          Total executions: <span className="font-semibold text-foreground">{totalCount}</span>
+
+        {/* Stats Summary */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+          <div className="bg-muted/50 rounded-lg p-3">
+            <div className="text-xs text-muted-foreground mb-1">Total</div>
+            <div className="text-2xl font-bold">{stats.total}</div>
+          </div>
+          <div className="bg-green-500/10 rounded-lg p-3">
+            <div className="text-xs text-muted-foreground mb-1">Success</div>
+            <div className="text-2xl font-bold text-green-600 dark:text-green-500">{stats.success}</div>
+          </div>
+          <div className="bg-red-500/10 rounded-lg p-3">
+            <div className="text-xs text-muted-foreground mb-1">Error</div>
+            <div className="text-2xl font-bold text-red-600 dark:text-red-500">{stats.error}</div>
+          </div>
+          <div className="bg-blue-500/10 rounded-lg p-3">
+            <div className="text-xs text-muted-foreground mb-1">Success Rate</div>
+            <div className="text-2xl font-bold text-blue-600 dark:text-blue-500 flex items-center gap-1">
+              {stats.successRate}%
+              {stats.trend === "up" && <TrendingUp className="h-4 w-4" />}
+              {stats.trend === "down" && <TrendingDown className="h-4 w-4" />}
+            </div>
+          </div>
         </div>
       </CardHeader>
+      
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>
-          {renderChart()}
+          <BarChart
+            data={chartData}
+            margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+            <XAxis 
+              dataKey="date" 
+              tick={{ fontSize: 12 }}
+              tickLine={false}
+            />
+            <YAxis 
+              tick={{ fontSize: 12 }}
+              tickLine={false}
+              axisLine={false}
+            />
+            <Tooltip content={<CustomTooltip />} />
+            <Legend 
+              wrapperStyle={{ fontSize: 14, paddingTop: 10 }}
+              iconType="circle"
+            />
+            <Bar dataKey="success" fill="rgb(34, 197, 94)" name="Success" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="error" fill="rgb(239, 68, 68)" name="Error" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="running" fill="rgb(59, 130, 246)" name="Running" radius={[4, 4, 0, 0]} />
+          </BarChart>
         </ResponsiveContainer>
       </CardContent>
     </Card>

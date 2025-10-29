@@ -121,11 +121,14 @@ export async function toggleScheduler(id: string, enabled: boolean): Promise<voi
 }
 
 // Chatbot API
-export async function sendChatMessage(message: string): Promise<{ message: string }> {
-  const response = await fetch(`${API_BASE_URL}/webhook/chat`, {
+export async function sendChatMessage(message: string): Promise<{ output: string }> {
+  const body =  {
+    chatInput: message
+  }
+  const response = await fetch(`${API_BASE_URL}/webhook/chat-agent`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ message }),
+    body: JSON.stringify(body) ,
   });
 
   if (!response.ok) {

@@ -12,6 +12,16 @@ export interface Execution {
   workflowData?: Workflow;
 }
 
+export interface ExecutionInputFilters  {
+  id: string;
+  finished: boolean;
+  mode: string;
+  status: ExecutionStatus;
+  startedAt: string;
+  stoppedAt?: string;
+  workflowId: string;
+}
+
 export interface ExecutionDetail extends Execution {
   // Additional fields from detail endpoint
   data?: ExecutionLogData;
