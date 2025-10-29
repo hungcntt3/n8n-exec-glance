@@ -4,6 +4,23 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MessageCircle, Send, X, Loader2, Trash2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { sendChatMessage } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -14,7 +31,7 @@ interface Message {
   timestamp: Date;
 }
 
-const STORAGE_KEY = "n8n-chatbot-history";
+const STORAGE_KEY = "chatHistory";
 
 export function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
@@ -108,7 +125,7 @@ export function Chatbot() {
   const handleClearHistory = () => {
     setMessages([]);
     localStorage.removeItem(STORAGE_KEY);
-    toast.success("Chat history cleared");
+    toast.success("Đã xóa lịch sử chat");
   };
 
   if (!isOpen) {
@@ -129,14 +146,39 @@ export function Chatbot() {
         <CardTitle className="text-lg">n8n Assistant</CardTitle>
         <div className="flex gap-1">
           {messages.length > 0 && (
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={handleClearHistory}
-              title="Clear history"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <AlertDialog>
+                  <TooltipTrigger asChild>
+                    <AlertDialogTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Xóa lịch sử chat</p>
+                  </TooltipContent>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Xác nhận xóa lịch sử</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Bạn có chắc muốn xóa toàn bộ lịch sử chat không? Hành động này không thể hoàn tác.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Hủy</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleClearHistory}>
+                        Xóa
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </Tooltip>
+            </TooltipProvider>
           )}
           <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
             <X className="h-4 w-4" />
